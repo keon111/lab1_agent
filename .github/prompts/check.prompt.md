@@ -24,7 +24,8 @@ agent: agent
 7. Запусти `ctest --test-dir build -C Release --output-on-failure`; перевір, що CTest знайшов і пройшов саме `BasicAddition`.
 8. Переконайся, що `build/` не відстежується Git: `git check-ignore build/` має підтвердити ігнорування, а `git ls-files build/` не має виводити відстежуваних файлів.
 9. Перевір YAML-синтаксис `.github/workflows/ci.yml` доступним локальним валідатором. Переконайся, що файл містить `ubuntu-latest`, `windows-latest` і `macos-latest`.
-10. Виведи підсумкову таблицю зі стовпцями `Перевірка` і `Результат`, позначивши кожен пункт `PASS` або `FAIL`. Заверш команду помилкою, якщо будь-який пункт має `FAIL`.
+10. Переглянь `git ls-files` і переконайся, що серед відстежуваних файлів немає `.env`, `.env.*`, `*.pem`, `*.key` або `id_rsa*`. Запусти `git grep -I -n -E 'ghp_|github_pat_|AKIA|BEGIN PRIVATE KEY' -- . ':(exclude).github/prompts/check.prompt.md'`, щоб знайти типові ознаки токенів і приватних ключів у відстежуваних файлах, виключивши цей prompt із пошуку. Якщо знайдено чутливий шлях або вміст, познач перевірку як `FAIL`; нічого не видаляй і не виводь знайдені секрети у звіті.
+11. Виведи підсумкову таблицю зі стовпцями `Перевірка` і `Результат`, позначивши кожен пункт `PASS` або `FAIL`, зокрема рядок `Відсутність секретів у Git`. Заверш команду помилкою, якщо будь-який пункт має `FAIL`.
 
 ## Очікувані файли
 
@@ -39,6 +40,8 @@ agent: agent
 - Тест: `ctest --test-dir build -C Release --output-on-failure`.
 - Git ignore: `git check-ignore build/` і `git ls-files build/`.
 - YAML і runner-и: `actionlint .github/workflows/ci.yml` (якщо доступний), або інший локальний YAML-валідатор та пошук трьох назв runner-ів.
+- Відстежувані чутливі файли: `git ls-files -- ':(glob)**/.env*' ':(glob)**/*.pem' ':(glob)**/*.key' ':(glob)**/id_rsa*'`.
+- Ознаки секретів і приватних ключів у відстежуваних файлах: `git grep -I -n -E 'ghp_|github_pat_|AKIA|BEGIN PRIVATE KEY' -- . ':(exclude).github/prompts/check.prompt.md'`. Код завершення `1` означає, що збігів немає; якщо збіг є, познач `FAIL`, не повторюй секретне значення у звіті.
 
 ## Повідомлення про помилку
 
