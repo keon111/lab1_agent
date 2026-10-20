@@ -48,3 +48,15 @@
 ```
 
 **Причина:** за методичкою вихідний код має лежати в
+
+## Запит 3. Commands
+
+**Промпт:**
+
+```
+Створи в .github/prompts/ шість файлів: git-init.prompt.md, create-project.prompt.md, create-build.prompt.md, create-actions.prompt.md, check.prompt.md, init.prompt.md. Кожен починається з YAML frontmatter (description, agent: agent). У кожному: передумови, дії, очікувані файли, команди перевірки, повідомлення про помилку. Усі commands ідемпотентні: повторний запуск не руйнує і не дублює файли чи конфігурації. git-init: перевіряє, що каталог є Git-репозиторієм, створює або доповнює .gitignore (build/, кеші, тимчасові файли), показує git status і поточну гілку, нічого не видаляє. create-project: застосовує skill project-scaffold. create-build: застосовує skill build-and-test. create-actions: застосовує skill github-actions. check: нічого не змінює; перевіряє наявність manifest, skills, commands і каталогів src/, tests/, docs/; запускає ci.sh або ci.bat; переконується, що створено виконуваний файл hello, що ctest знайшов і пройшов BasicAddition, що build/ не відстежується Git, що ci.yml є валідним YAML і містить ubuntu-latest, windows-latest, macos-latest; виводить підсумкову таблицю PASS/FAIL і завершується помилкою, якщо є хоч один FAIL. init: оркестратор, послідовно виконує git-init, create-project, create-build, create-actions, check; передає результат кожного кроку наступному, зупиняється на першій помилці з поясненням і не оголошує успіх без успішного check; наприкінці друкує звіт зі списком створених файлів.
+```
+
+**Результат:** створено шість prompt-файлів у `.github/prompts/`. Кожен має frontmatter (`description`, `agent: agent`) і розділи: передумови, дії, очікувані файли, команди перевірки, повідомлення про помилку. `git-init` перевіряє репозиторій і доповнює `.gitignore`, не виконуючи `git init`. `create-project`, `create-build`, `create-actions` застосовують відповідні skills. `check` лише перевіряє (структуру, збірку, `BasicAddition`, ігнорування `build/`, YAML і три runner-и) та видає таблицю PASS/FAIL. `init` послідовно запускає п'ять команд, зупиняється на першій помилці й не оголошує успіх без успішного `check`. Frontmatter, розділи та `git diff --check` перевірені, помилок немає.
+
+**Зауваження:** `check` не перевіряє відсутність секретів і чутливих файлів у Git, а методичка (Етап 6) цього вимагає.
