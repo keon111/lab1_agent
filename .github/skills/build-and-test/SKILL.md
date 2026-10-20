@@ -22,8 +22,10 @@ description: Налаштовує кросплатформну збірку C++1
   - розташований у корені та створює виконуваний файл `hello` із `src/main.cpp`;
   - створює статичну бібліотеку `math_lib` із `src/math_operations.cpp` і задає `src/` як `PUBLIC` include-каталог для заголовка `src/math_operations.h`;
   - підключає GoogleTest через `FetchContent` із тегом `v1.14.0`;
+  - задає `DOWNLOAD_EXTRACT_TIMESTAMP TRUE` у `FetchContent_Declare` для GoogleTest, щоб уникнути попередження CMP0135;
   - встановлює `gtest_force_shared_crt` у `ON` для сумісності з MSVC;
   - викликає `enable_testing()` і використовує `gtest_discover_tests`.
+- `.gitattributes` у корені з правилами кінців рядків: `*.sh text eol=lf`, `*.bat text eol=crlf`, `*.yml text eol=lf`, `*.md text eol=lf`.
 - `src/math_operations.h` із декларацією `int add(int a, int b);`.
 - `src/math_operations.cpp` із реалізацією `add`.
 - `tests/unit_tests.cpp` із GoogleTest-тестом `BasicAddition`.
@@ -48,3 +50,5 @@ description: Налаштовує кросплатформну збірку C++1
 ## Типовий сценарій помилки
 
 На Windows виникає конфлікт runtime-бібліотек між тестом і GoogleTest. Встанови `gtest_force_shared_crt` у `ON` до завантаження GoogleTest через FetchContent і перебудуй проєкт.
+
+Якщо `ci.sh` має кінці рядків CRLF, його виконання ламається на Linux і macOS. Додай або збережи в кореневому `.gitattributes` правило `*.sh text eol=lf`, щоб Git нормалізував shell-скрипти до LF, і перевір файл після checkout.
