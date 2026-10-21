@@ -100,3 +100,102 @@
 **Результат:** створено три файли. `README.md`: дані студента, короткий опис, запуск `/init`, збірка, тести й запуск `hello` на Windows/Linux/macOS. `docs/architecture.md`: проблеми, які вирішує агент, skills, commands, передавання даних між етапами, обробка помилок оркестратором і таблиця відповідності файлів формату GitHub Copilot їхнім ролям. `docs/usage.md`: точні команди `/init`, `/check`, `ci.bat`/`ci.sh` і запуску виконуваного файла. Внутрішні посилання та `git diff --check` перевірені, збірку не запускали, бо змінено лише документацію.
 
 **Зауваження:** помилок не виявлено, змін після генерації не вносилось.
+
+## Запит 5. Перший запуск /init
+
+**Промпт:**
+
+```
+/init
+```
+
+**Результат:** Copilot не виконав `.github/prompts/init.prompt.md`, а створив `.github/copilot-instructions.md` з описом архітектури репозиторію та командами збірки й тестування. Файли проєкту не створено.
+
+**Помилка:** вбудована команда `/init` Copilot Chat (генерація workspace instructions) перехопила prompt-команду `init`, оркестратор не запускався.
+
+**Прийняте рішення:** згенерований `copilot-instructions.md` видалено й не комітити; оркестратор запускати явним посиланням на prompt-файл через `#file:`.
+
+## Запит 5.1. Запуск оркестратора через посилання на файл
+
+**Промпт:**
+
+```
+Виконай повністю інструкції з файлу #file:.github/prompts/init.prompt.md: послідовно запусти git-init, create-project, create-build, create-actions і check, кожен за своїм файлом у .github/prompts/. Зупинись на першій помилці. Не оголошуй успіх без check з усіма PASS.
+```
+
+**Результат:** оркестратор зупинився на першій помилці (етап `create-build`). `git-init` і `create-project` пройшли. `create-build` створив CMake-конфігурацію, `math_lib`, тест `BasicAddition` і скрипти `ci.sh`/`ci.bat`, але `ci.bat` завершився з кодом 1, бо в терміналі агента `cmake` не розпізнається як команда. Етапи `create-actions` і `check` не запускалися, успіх не оголошено.
+
+**Помилка:** VS Code було запущено до встановлення CMake, тому його термінал мав застарілий PATH. Власний PowerShell з актуальним PATH виконав `ci.bat` успішно: `hello.exe` зібрано, тест `BasicAddition` пройшов.
+
+**Прийняте рішення:** перезапустити VS Code з нового PowerShell і продовжити оркестрацію з етапу `create-actions`. Файли, створені на попередніх етапах, не змінювати. Зупинка на першій помилці підтверджує коректну роботу обробки помилок в `init`.
+
+## Запит 5.2. Продовження оркестрації
+
+**Промпт:**
+
+```
+Продовж виконання #file:.github/prompts/init.prompt.md. Кроки git-init, create-project і create-build уже виконані: файли проєкту створені, не змінюй їх. Тепер виконай create-actions за #file:.github/prompts/create-actions.prompt.md, потім check за #file:.github/prompts/check.prompt.md. Зупинись на першій помилці, не оголошуй успіх без check з усіма PASS.
+```
+
+**Результат:** оркестратор зупинився на етапі `create-actions`. Workflow `.github/workflows/ci.yml` створено, його тригери, matrix і кроки пройшли структурну перевірку, але YAML-синтаксис підтвердити не вдалося: `actionlint`, PyYAML, Node-пакети `yaml`/`js-yaml` і PowerShell YAML-модуль відсутні. Згідно з інструкцією `create-actions`, відсутність валідатора має бути явною помилкою, тому `check` не запускався. `git diff --check` виявив пробіли в кінці рядків у `docs/ai-log.md`.
+
+**Помилка:** інструкції `create-actions` і `check` вимагали зовнішній валідатор YAML, але не вказували, як його отримати. Перевірка ставала неможливою на чистій машині.
+
+**Прийняте рішення:** зробити `actionlint` явною передумовою (встановлює користувач, агент нічого не встановлює), виправити інструкції агента й документацію через AI. Пробіли в кінці рядків видалено командою VS Code Trim Trailing Whitespace. `actionlint` встановлено командою `winget install rhysd.actionlint`.
+
+## Запит 5.3. Передумова actionlint
+
+**Промпт:**
+
+```
+Онови .github/prompts/create-actions.prompt.md і .github/prompts/check.prompt.md: у розділі "Передумови" вкажи, що для перевірки YAML потрібен встановлений actionlint (користувач встановлює його сам командою winget install rhysd.actionlint, агент нічого не встановлює). Перевірка YAML виконується командою actionlint .github/workflows/ci.yml; успіхом вважається код завершення 0. Прибери згадки про альтернативні YAML-парсери. Якщо actionlint відсутній, познач перевірку як FAIL з поясненням, як його встановити, і не вважай це успіхом. Також додай в README.md і docs/usage.md розділ "Передумови" зі списком: Git, CMake, компілятор C++17 (MSVC на Windows), actionlint. Решту вмісту не змінюй.
+```
+
+**Результат:** у `check.prompt.md` і `create-actions.prompt.md` додано передумову: для перевірки YAML потрібен `actionlint`, який користувач встановлює сам; перевірка виконується командою `actionlint .github/workflows/ci.yml`, відсутність валідатора вважається `FAIL`. У `README.md` і `docs/usage.md` додано розділ «Передумови» (Git, CMake, компілятор C++17, actionlint).
+
+## Запит 5.4. Продовження оркестрації після встановлення actionlint
+
+**Промпт:**
+
+```
+Продовж виконання #file:.github/prompts/init.prompt.md. Кроки git-init, create-project і create-build виконані, workflow .github/workflows/ci.yml уже створено: не змінюй створені файли. Заверши create-actions, перевіривши YAML через actionlint, потім виконай check за #file:.github/prompts/check.prompt.md. Зупинись на першій помилці, не оголошуй успіх без check з усіма PASS.
+```
+
+**Результат:** `actionlint .github/workflows/ci.yml` завершився з кодом 0, етап `create-actions` пройшов. `check` виконано без змін файлів проєкту, усі перевірки PASS:
+
+| Перевірка | Результат |
+|---|---|
+| Manifest, skills, commands і каталоги `src/`, `tests/`, `docs/` | PASS |
+| Windows-збірка через `ci.bat` | PASS |
+| Виконуваний файл `build\Release\hello.exe` | PASS |
+| CTest: `BasicAddition` знайдено й пройшов | PASS |
+| `build/` ігнорується Git і не містить відстежуваних файлів | PASS |
+| YAML: `actionlint .github/workflows/ci.yml` (код 0) | PASS |
+| Matrix містить Ubuntu, Windows і macOS | PASS |
+| Відстежувані чутливі назви файлів | PASS |
+| Пошук токенів і приватних ключів | PASS |
+
+Під час конфігурації CMake виведено попередження `CMP0135`, збірка не постраждала.
+
+## Запит 5.5. Кінці рядків і попередження CMP0135
+
+**Промпт:**
+
+```
+Додай у корінь репозиторію файл .gitattributes з правилами: *.sh text eol=lf, *.bat text eol=crlf, *.yml text eol=lf, *.md text eol=lf. Онови CMakeLists.txt: у FetchContent_Declare для GoogleTest додай DOWNLOAD_EXTRACT_TIMESTAMP TRUE, щоб прибрати попередження CMP0135. Онови skill build-and-test (.github/skills/build-and-test/SKILL.md): відобрази обидві зміни (.gitattributes із правилами кінців рядків для ci.sh як обов'язковий вихідний файл, і параметр DOWNLOAD_EXTRACT_TIMESTAMP TRUE) у розділах "Вихідні файли" і "Типовий сценарій помилки" (CRLF у ci.sh ламає виконання на Linux і macOS). Решту вмісту не змінюй.
+```
+
+**Причина:** скрипт `ci.sh` створено на Windows, тому він мав CRLF-кінці рядків, які ламають bash на Linux і macOS; попередження CMP0135 засмічувало лог збірки.
+
+**Результат:** додано кореневий `.gitattributes` із правилами кінців рядків (`*.sh`, `*.yml`, `*.md` з LF, `*.bat` з CRLF). У `CMakeLists.txt` для GoogleTest додано `DOWNLOAD_EXTRACT_TIMESTAMP TRUE`. У `build-and-test/SKILL.md` оновлено розділи «Вихідні файли» й «Типовий сценарій помилки». Перевірка: `git ls-files --eol ci.sh` показує `i/lf`, `ci.bat` збирає проєкт, `BasicAddition` проходить, попередження CMP0135 зникло.
+
+## Локальна перевірка
+
+Команда `.\ci.bat` у Windows PowerShell: конфігурація CMake, збірка Release (`gmock`, `gtest`, `hello`, `math_lib`, `unit_tests`), CTest: `MathOperationsTest.BasicAddition` Passed, 100% tests passed. Запуск `.\build\Release\hello.exe` виводить `Hello World`. `git status` не показує каталог `build/`, а `git ls-files --stage ci.sh` показує режим `100755`.
+
+## Результат GitHub Actions
+
+Workflow `C++ CI` для гілки `feature/develop/1-cpp-hello-agent` (запуск #1, коміт `84d8fa0`): Ubuntu, Windows і macOS завершилися зі статусом Success за 1 хв 20 с. `ci.sh` виконав збірку, CTest знайшов і пройшов `MathOperationsTest.BasicAddition`. Створено три артефакти: `hello-ubuntu-latest`, `hello-windows-latest`, `hello-macos-latest`. Windows-артефакт завантажено й запущено з терміналу, виведено `Hello World`.
+
+В анотаціях запуску лише попередження GitHub (застарілий Node.js 20 для `actions/checkout@v4` і `actions/upload-artifact@v4`, міграція `ubuntu-latest`, черга на macOS). Вони не впливають на результат, версії `@v4` залишено, як вимагає методичка.
+
