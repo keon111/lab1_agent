@@ -1,0 +1,10 @@
+build/
+CMakeFiles/
+CMakeCache.txt
+Testing/
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+*.swp
+*.swo
